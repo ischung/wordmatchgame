@@ -3,6 +3,7 @@ import type { GameAction } from '../../hooks/useGameReducer'
 import CountdownOverlay from '../CountdownOverlay'
 import HUD from '../HUD'
 import WordCanvas from '../WordCanvas'
+import InputBar from '../InputBar'
 
 interface Props {
   state: GameState
@@ -21,8 +22,11 @@ export default function GameScreen({ state, dispatch }: Props) {
         matchedId={null}
         expiringIds={new Set()}
       />
-      {/* InputBar는 #14에서 구현 — isCountdown을 disabled prop으로 전달 */}
-      <input disabled={isCountdown} placeholder="단어를 입력하세요" />
+      <InputBar
+        words={state.words}
+        disabled={isCountdown}
+        dispatch={dispatch}
+      />
     </div>
   )
 }
