@@ -1,0 +1,6 @@
+.canvas {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  width: 100%;
+}
