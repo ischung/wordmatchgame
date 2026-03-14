@@ -21,10 +21,23 @@ jobs:
     steps:
       - name: Move linked issues to Review
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ secrets.KANBAN_TOKEN }}
+          # PR 본문을 환경변수로 전달 (셸 인젝션 방지)
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          PR_BODY="${{ github.event.pull_request.body }}"
           ISSUE_NUMBERS=$(echo "$PR_BODY" | grep -oP '(?:Closes|Fixes|Resolves)\s+#\K\d+' || true)
+
+          if [ -z "$ISSUE_NUMBERS" ]; then
+            echo "연결된 이슈 없음. 종료."
+            exit 0
+          fi
+
+          PROJECT_ID=$(gh api graphql -f query="
+            query {
+              user(login: \"$OWNER\") {
+                projectV2(number: $PROJECT_NUMBER) { id }
+              }
+            }" --jq ".data.user.projectV2.id")
 
           for ISSUE_NUMBER in $ISSUE_NUMBERS; do
             echo "이슈 #$ISSUE_NUMBER → Review 이동 중..."
@@ -43,12 +56,10 @@ jobs:
                 }
               }" --jq ".data.user.projectV2.items.nodes[] | select(.content.number == $ISSUE_NUMBER) | .id")
 
-            PROJECT_ID=$(gh api graphql -f query="
-              query {
-                user(login: \"$OWNER\") {
-                  projectV2(number: $PROJECT_NUMBER) { id }
-                }
-              }" --jq ".data.user.projectV2.id")
+            if [ -z "$ITEM_ID" ]; then
+              echo "이슈 #$ISSUE_NUMBER 이 프로젝트에 없음. 건너뜀."
+              continue
+            fi
 
             gh api graphql -f query="
               mutation {
@@ -69,10 +80,23 @@ jobs:
     steps:
       - name: Move linked issues to Done
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ secrets.KANBAN_TOKEN }}
+          # PR 본문을 환경변수로 전달 (셸 인젝션 방지)
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          PR_BODY="${{ github.event.pull_request.body }}"
           ISSUE_NUMBERS=$(echo "$PR_BODY" | grep -oP '(?:Closes|Fixes|Resolves)\s+#\K\d+' || true)
+
+          if [ -z "$ISSUE_NUMBERS" ]; then
+            echo "연결된 이슈 없음. 종료."
+            exit 0
+          fi
+
+          PROJECT_ID=$(gh api graphql -f query="
+            query {
+              user(login: \"$OWNER\") {
+                projectV2(number: $PROJECT_NUMBER) { id }
+              }
+            }" --jq ".data.user.projectV2.id")
 
           for ISSUE_NUMBER in $ISSUE_NUMBERS; do
             echo "이슈 #$ISSUE_NUMBER → Done 이동 중..."
@@ -91,12 +115,10 @@ jobs:
                 }
               }" --jq ".data.user.projectV2.items.nodes[] | select(.content.number == $ISSUE_NUMBER) | .id")
 
-            PROJECT_ID=$(gh api graphql -f query="
-              query {
-                user(login: \"$OWNER\") {
-                  projectV2(number: $PROJECT_NUMBER) { id }
-                }
-              }" --jq ".data.user.projectV2.id")
+            if [ -z "$ITEM_ID" ]; then
+              echo "이슈 #$ISSUE_NUMBER 이 프로젝트에 없음. 건너뜀."
+              continue
+            fi
 
             gh api graphql -f query="
               mutation {
