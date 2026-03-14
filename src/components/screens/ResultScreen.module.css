@@ -1,0 +1,68 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 1.5rem;
+  padding: 2rem;
+}
+
+.title {
+  font-size: var(--font-size-xl);
+  color: var(--color-text);
+}
+
+.stats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.score {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.stat {
+  font-size: var(--font-size-md);
+  color: var(--color-muted);
+}
+
+.best {
+  font-size: var(--font-size-md);
+  color: var(--color-muted);
+}
+
+.newBest {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: #fbbf24;
+  animation: bounceIn 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes bounceIn {
+  0%   { transform: scale(0.3); opacity: 0; }
+  50%  { transform: scale(1.1); opacity: 1; }
+  70%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+.btn {
+  margin-top: 1rem;
+  padding: 0.75rem 2.5rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #0f172a;
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.btn:hover {
+  opacity: 0.85;
+}
