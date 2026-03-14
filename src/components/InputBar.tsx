@@ -29,6 +29,7 @@ export default function InputBar({ words, disabled, dispatch }: Props) {
     const input = value.trim()
     if (!input) return
 
+    dispatch({ type: 'ATTEMPT' })
     const matched = match(input, words)
     if (matched) {
       dispatch({

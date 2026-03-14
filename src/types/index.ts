@@ -16,6 +16,8 @@ export interface GameState {
   timeLeft: number;        // 남은 시간 (초)
   lastWord: string | null; // 직전 출현 단어 (중복 방지)
   isNewBestScore: boolean; // 최고 점수 갱신 여부
+  correctCount: number;    // 맞힌 단어 수
+  totalAttempts: number;   // 총 입력 시도 수 (Enter/Space)
 }
 
 // 게임 설정

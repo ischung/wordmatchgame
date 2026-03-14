@@ -9,6 +9,7 @@ type GameAction =
   | { type: 'SPAWN_WORD'; word: WordItem }
   | { type: 'REMOVE_EXPIRED' }
   | { type: 'MATCH_WORD'; wordId: string; score: number }
+  | { type: 'ATTEMPT' }
   | { type: 'TICK' }
   | { type: 'END_GAME'; isNewBestScore: boolean }
   | { type: 'RESTART' }
@@ -22,6 +23,8 @@ const initialState: GameState = {
   timeLeft: 60,
   lastWord: null,
   isNewBestScore: false,
+  correctCount: 0,
+  totalAttempts: 0,
 }
 
 // ── 리듀서 ──────────────────────────────────────────────────────────────────
@@ -56,7 +59,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         words: state.words.filter(w => w.id !== action.wordId),
         score: state.score + action.score,
+        correctCount: state.correctCount + 1,
       }
+
+    case 'ATTEMPT':
+      return { ...state, totalAttempts: state.totalAttempts + 1 }
 
     case 'TICK': {
       const next = state.timeLeft - 1
