@@ -6,13 +6,6 @@ on:
   pull_request_target:
     types: [closed]
 
-env:
-  PROJECT_NUMBER: 9
-  OWNER: ischung
-  STATUS_FIELD_ID: PVTSSF_lAHOAQcRR84BRskhzg_cvmM
-  REVIEW_OPTION_ID: cbd8ae18
-  DONE_OPTION_ID: 6560edd2
-
 jobs:
   move-to-review:
     name: PR 오픈 시 → Review 이동
@@ -20,32 +13,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Move linked issues to Review
+        uses: actions/github-script@v7
         env:
-          GH_TOKEN: ${{ secrets.KANBAN_TOKEN }}
-          # PR 본문을 환경변수로 전달 (셸 인젝션 방지)
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          ISSUE_NUMBERS=$(echo "$PR_BODY" | grep -oP '(?:Closes|Fixes|Resolves)\s+#\K\d+' || true)
+          KANBAN_TOKEN: ${{ secrets.KANBAN_TOKEN }}
+        with:
+          github-token: ${{ secrets.KANBAN_TOKEN }}
+          script: |
+            const PROJECT_NUMBER = 9;
+            const OWNER = 'ischung';
+            const STATUS_FIELD_ID = 'PVTSSF_lAHOAQcRR84BRskhzg_cvmM';
+            const REVIEW_OPTION_ID = 'cbd8ae18';
 
-          if [ -z "$ISSUE_NUMBERS" ]; then
-            echo "연결된 이슈 없음. 종료."
-            exit 0
-          fi
+            const body = context.payload.pull_request.body || '';
+            const matches = [...body.matchAll(/(?:Closes|Fixes|Resolves)\s+#(\d+)/gi)];
+            const issueNumbers = matches.map(m => parseInt(m[1]));
 
-          PROJECT_ID=$(gh api graphql -f query="
-            query {
-              user(login: \"$OWNER\") {
-                projectV2(number: $PROJECT_NUMBER) { id }
-              }
-            }" --jq ".data.user.projectV2.id")
+            if (issueNumbers.length === 0) {
+              console.log('연결된 이슈 없음. 종료.');
+              return;
+            }
 
-          for ISSUE_NUMBER in $ISSUE_NUMBERS; do
-            echo "이슈 #$ISSUE_NUMBER → Review 이동 중..."
-
-            ITEM_ID=$(gh api graphql -f query="
+            // 프로젝트 ID 조회
+            const projectRes = await github.graphql(`
               query {
-                user(login: \"$OWNER\") {
-                  projectV2(number: $PROJECT_NUMBER) {
+                user(login: "${OWNER}") {
+                  projectV2(number: ${PROJECT_NUMBER}) { id }
+                }
+              }
+            `);
+            const projectId = projectRes.user.projectV2.id;
+
+            // 프로젝트 아이템 목록 조회
+            const itemsRes = await github.graphql(`
+              query {
+                user(login: "${OWNER}") {
+                  projectV2(number: ${PROJECT_NUMBER}) {
                     items(first: 100) {
                       nodes {
                         id
@@ -54,24 +56,29 @@ jobs:
                     }
                   }
                 }
-              }" --jq ".data.user.projectV2.items.nodes[] | select(.content.number == $ISSUE_NUMBER) | .id")
+              }
+            `);
+            const items = itemsRes.user.projectV2.items.nodes;
 
-            if [ -z "$ITEM_ID" ]; then
-              echo "이슈 #$ISSUE_NUMBER 이 프로젝트에 없음. 건너뜀."
-              continue
-            fi
+            for (const issueNumber of issueNumbers) {
+              const item = items.find(i => i.content?.number === issueNumber);
+              if (!item) {
+                console.log(`이슈 #${issueNumber} 프로젝트에 없음. 건너뜀.`);
+                continue;
+              }
 
-            gh api graphql -f query="
-              mutation {
-                updateProjectV2ItemFieldValue(input: {
-                  projectId: \"$PROJECT_ID\"
-                  itemId: \"$ITEM_ID\"
-                  fieldId: \"$STATUS_FIELD_ID\"
-                  value: { singleSelectOptionId: \"$REVIEW_OPTION_ID\" }
-                }) { projectV2Item { id } }
-              }"
-            echo "✅ 이슈 #$ISSUE_NUMBER → Review 완료"
-          done
+              await github.graphql(`
+                mutation {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: "${projectId}"
+                    itemId: "${item.id}"
+                    fieldId: "${STATUS_FIELD_ID}"
+                    value: { singleSelectOptionId: "${REVIEW_OPTION_ID}" }
+                  }) { projectV2Item { id } }
+                }
+              `);
+              console.log(`✅ 이슈 #${issueNumber} → Review 완료`);
+            }
 
   move-to-done:
     name: PR 머지 시 → Done 이동
@@ -79,32 +86,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Move linked issues to Done
-        env:
-          GH_TOKEN: ${{ secrets.KANBAN_TOKEN }}
-          # PR 본문을 환경변수로 전달 (셸 인젝션 방지)
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          ISSUE_NUMBERS=$(echo "$PR_BODY" | grep -oP '(?:Closes|Fixes|Resolves)\s+#\K\d+' || true)
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.KANBAN_TOKEN }}
+          script: |
+            const PROJECT_NUMBER = 9;
+            const OWNER = 'ischung';
+            const STATUS_FIELD_ID = 'PVTSSF_lAHOAQcRR84BRskhzg_cvmM';
+            const DONE_OPTION_ID = '6560edd2';
 
-          if [ -z "$ISSUE_NUMBERS" ]; then
-            echo "연결된 이슈 없음. 종료."
-            exit 0
-          fi
+            const body = context.payload.pull_request.body || '';
+            const matches = [...body.matchAll(/(?:Closes|Fixes|Resolves)\s+#(\d+)/gi)];
+            const issueNumbers = matches.map(m => parseInt(m[1]));
 
-          PROJECT_ID=$(gh api graphql -f query="
-            query {
-              user(login: \"$OWNER\") {
-                projectV2(number: $PROJECT_NUMBER) { id }
-              }
-            }" --jq ".data.user.projectV2.id")
+            if (issueNumbers.length === 0) {
+              console.log('연결된 이슈 없음. 종료.');
+              return;
+            }
 
-          for ISSUE_NUMBER in $ISSUE_NUMBERS; do
-            echo "이슈 #$ISSUE_NUMBER → Done 이동 중..."
-
-            ITEM_ID=$(gh api graphql -f query="
+            const projectRes = await github.graphql(`
               query {
-                user(login: \"$OWNER\") {
-                  projectV2(number: $PROJECT_NUMBER) {
+                user(login: "${OWNER}") {
+                  projectV2(number: ${PROJECT_NUMBER}) { id }
+                }
+              }
+            `);
+            const projectId = projectRes.user.projectV2.id;
+
+            const itemsRes = await github.graphql(`
+              query {
+                user(login: "${OWNER}") {
+                  projectV2(number: ${PROJECT_NUMBER}) {
                     items(first: 100) {
                       nodes {
                         id
@@ -113,21 +125,26 @@ jobs:
                     }
                   }
                 }
-              }" --jq ".data.user.projectV2.items.nodes[] | select(.content.number == $ISSUE_NUMBER) | .id")
+              }
+            `);
+            const items = itemsRes.user.projectV2.items.nodes;
 
-            if [ -z "$ITEM_ID" ]; then
-              echo "이슈 #$ISSUE_NUMBER 이 프로젝트에 없음. 건너뜀."
-              continue
-            fi
+            for (const issueNumber of issueNumbers) {
+              const item = items.find(i => i.content?.number === issueNumber);
+              if (!item) {
+                console.log(`이슈 #${issueNumber} 프로젝트에 없음. 건너뜀.`);
+                continue;
+              }
 
-            gh api graphql -f query="
-              mutation {
-                updateProjectV2ItemFieldValue(input: {
-                  projectId: \"$PROJECT_ID\"
-                  itemId: \"$ITEM_ID\"
-                  fieldId: \"$STATUS_FIELD_ID\"
-                  value: { singleSelectOptionId: \"$DONE_OPTION_ID\" }
-                }) { projectV2Item { id } }
-              }"
-            echo "✅ 이슈 #$ISSUE_NUMBER → Done 완료"
-          done
+              await github.graphql(`
+                mutation {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: "${projectId}"
+                    itemId: "${item.id}"
+                    fieldId: "${STATUS_FIELD_ID}"
+                    value: { singleSelectOptionId: "${DONE_OPTION_ID}" }
+                  }) { projectV2Item { id } }
+                }
+              `);
+              console.log(`✅ 이슈 #${issueNumber} → Done 완료`);
+            }
