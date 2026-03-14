@@ -1,0 +1,111 @@
+name: Kanban Automation
+
+on:
+  pull_request:
+    types: [opened, reopened]
+  pull_request_target:
+    types: [closed]
+
+env:
+  PROJECT_NUMBER: 9
+  OWNER: ischung
+  STATUS_FIELD_ID: PVTSSF_lAHOAQcRR84BRskhzg_cvmM
+  REVIEW_OPTION_ID: cbd8ae18
+  DONE_OPTION_ID: 6560edd2
+
+jobs:
+  move-to-review:
+    name: PR 오픈 시 → Review 이동
+    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'reopened')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move linked issues to Review
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PR_BODY="${{ github.event.pull_request.body }}"
+          ISSUE_NUMBERS=$(echo "$PR_BODY" | grep -oP '(?:Closes|Fixes|Resolves)\s+#\K\d+' || true)
+
+          for ISSUE_NUMBER in $ISSUE_NUMBERS; do
+            echo "이슈 #$ISSUE_NUMBER → Review 이동 중..."
+
+            ITEM_ID=$(gh api graphql -f query="
+              query {
+                user(login: \"$OWNER\") {
+                  projectV2(number: $PROJECT_NUMBER) {
+                    items(first: 100) {
+                      nodes {
+                        id
+                        content { ... on Issue { number } }
+                      }
+                    }
+                  }
+                }
+              }" --jq ".data.user.projectV2.items.nodes[] | select(.content.number == $ISSUE_NUMBER) | .id")
+
+            PROJECT_ID=$(gh api graphql -f query="
+              query {
+                user(login: \"$OWNER\") {
+                  projectV2(number: $PROJECT_NUMBER) { id }
+                }
+              }" --jq ".data.user.projectV2.id")
+
+            gh api graphql -f query="
+              mutation {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: \"$PROJECT_ID\"
+                  itemId: \"$ITEM_ID\"
+                  fieldId: \"$STATUS_FIELD_ID\"
+                  value: { singleSelectOptionId: \"$REVIEW_OPTION_ID\" }
+                }) { projectV2Item { id } }
+              }"
+            echo "✅ 이슈 #$ISSUE_NUMBER → Review 완료"
+          done
+
+  move-to-done:
+    name: PR 머지 시 → Done 이동
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move linked issues to Done
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PR_BODY="${{ github.event.pull_request.body }}"
+          ISSUE_NUMBERS=$(echo "$PR_BODY" | grep -oP '(?:Closes|Fixes|Resolves)\s+#\K\d+' || true)
+
+          for ISSUE_NUMBER in $ISSUE_NUMBERS; do
+            echo "이슈 #$ISSUE_NUMBER → Done 이동 중..."
+
+            ITEM_ID=$(gh api graphql -f query="
+              query {
+                user(login: \"$OWNER\") {
+                  projectV2(number: $PROJECT_NUMBER) {
+                    items(first: 100) {
+                      nodes {
+                        id
+                        content { ... on Issue { number } }
+                      }
+                    }
+                  }
+                }
+              }" --jq ".data.user.projectV2.items.nodes[] | select(.content.number == $ISSUE_NUMBER) | .id")
+
+            PROJECT_ID=$(gh api graphql -f query="
+              query {
+                user(login: \"$OWNER\") {
+                  projectV2(number: $PROJECT_NUMBER) { id }
+                }
+              }" --jq ".data.user.projectV2.id")
+
+            gh api graphql -f query="
+              mutation {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: \"$PROJECT_ID\"
+                  itemId: \"$ITEM_ID\"
+                  fieldId: \"$STATUS_FIELD_ID\"
+                  value: { singleSelectOptionId: \"$DONE_OPTION_ID\" }
+                }) { projectV2Item { id } }
+              }"
+            echo "✅ 이슈 #$ISSUE_NUMBER → Done 완료"
+          done
