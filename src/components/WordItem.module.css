@@ -1,0 +1,46 @@
+.word {
+  position: absolute;
+  top: var(--word-y, 0%);
+  left: var(--word-x, 50%);
+  transform: translateX(-50%);
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  white-space: nowrap;
+  animation:
+    fadeInDown 0.3s ease-out,
+    fall var(--fall-duration, 5000ms) linear 0.3s forwards;
+  pointer-events: none;
+}
+
+.word.matched {
+  animation: matchGlow 0.35s ease-out forwards;
+}
+
+.word.expiring {
+  animation: fadeOut 0.3s ease-in forwards;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateX(-50%) translateY(-16px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes fall {
+  from { top: var(--word-y, 0%); }
+  to   { top: 90%; }
+}
+
+@keyframes matchGlow {
+  0%   { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.8); color: var(--color-success); }
+  50%  { box-shadow: 0 0 12px 6px rgba(74, 222, 128, 0.6); color: var(--color-success); }
+  100% { opacity: 0; box-shadow: none; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
