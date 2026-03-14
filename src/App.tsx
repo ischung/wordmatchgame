@@ -1,9 +1,8 @@
-function App() {
-  return (
-    <div>
-      <h1>워드 매치 게임</h1>
-    </div>
-  )
-}
+import { useGameReducer } from './hooks/useGameReducer'
+import ScreenManager from './components/ScreenManager'
 
-export default App
+export default function App() {
+  const { state, dispatch } = useGameReducer()
+
+  return <ScreenManager state={state} dispatch={dispatch} />
+}
